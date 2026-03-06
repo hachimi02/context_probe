@@ -18,15 +18,15 @@ Present two options:
 
 ### 2A. Current Client Mode
 
-**Discover configuration files:**
-- Search: `~/.claude/`, `./.claude/`, `~/.cursor/`, `./.cursor/`, `~/.continue/`, `./.continue/`
+**Discover configuration files (priority order):**
+- Search priority: `~/.claude/settings.json`, `~/.claude/config.json`, `./.claude/`, `~/.cursor/`, `./.cursor/`, `~/.continue/`, `./.continue/`
 - Read JSON/JSONC files (config.json, settings.json, etc.)
 
 **Extract information:**
-- API key: `apiKey`, `api_key`, `ANTHROPIC_AUTH_TOKEN`, `env.ANTHROPIC_AUTH_TOKEN`
-- Base URL: `baseURL`, `base_url`, `ANTHROPIC_BASE_URL`, `env.ANTHROPIC_BASE_URL`
+- API key: `env.ANTHROPIC_AUTH_TOKEN`, `apiKey`, `api_key`, `ANTHROPIC_AUTH_TOKEN`
+- Base URL: `env.ANTHROPIC_BASE_URL`, `baseURL`, `base_url`, `ANTHROPIC_BASE_URL`
 - Provider: `provider`, `type` (anthropic/openai)
-- Model: `model`, `models` (e.g., "claude-sonnet-4-6", "sonnet[1m]")
+- Model: `model`, `models` (e.g., "claude-sonnet-4-6", "sonnet[1m]", "opus[1m]")
 
 **Show extracted config to user and ask for confirmation.**
 
