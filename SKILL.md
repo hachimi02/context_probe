@@ -1,6 +1,6 @@
 ---
 name: context-probe
-version: 1.0.0
+version: 1.0.1
 description: Test the actual context window size of AI models configured in your current client (Claude Code, Cursor, Continue). Use when the user wants to verify model context limits, validate client configuration, or compare declared vs actual context sizes.
 ---
 
