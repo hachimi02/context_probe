@@ -90,3 +90,44 @@ pip install openai      # For OpenAI-compatible providers (SDK mode)
 pip install requests    # For HTTP client mode (default, recommended)
 pip install tiktoken    # Optional: local token counting for OpenAI models
 ```
+
+## Skill Development Workflow
+
+This project includes a Claude Code skill (`SKILL.md`) that provides an interactive interface for testing context windows.
+
+### Project Structure
+
+```
+context_probe/
+├── SKILL.md              # Skill source file (tracked in git)
+├── install_skill.sh      # Unix/Linux installation script
+├── install_skill.bat     # Windows installation script
+├── context_probe.py      # Main testing tool
+└── .claude/
+    └── skills/
+        └── context-probe/  # Installed skill (gitignored)
+```
+
+### Development Process
+
+1. **Edit source files**: Modify `SKILL.md` in project root (not in `.claude/`)
+2. **Install for testing**: Run `./install_skill.sh` or `install_skill.bat`
+3. **Test the skill**: Use Claude Code to invoke the skill
+4. **Commit changes**: Only commit source files (SKILL.md, scripts)
+
+### Testing the Skill
+
+```bash
+# Install skill locally
+./install_skill.sh
+
+# In Claude Code, trigger the skill by asking:
+# "test my context window" or "probe context limit"
+```
+
+The skill will:
+- Auto-discover configuration from `~/.claude/settings.json`
+- Extract API key, base URL, and model settings
+- Generate proper client identification headers
+- Run context window tests
+- Report results with status indicators
