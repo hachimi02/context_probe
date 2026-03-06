@@ -1,0 +1,50 @@
+{
+  // 报告输出文件路径
+  "report_file": "context_report.json",
+
+  // Provider 配置（支持多个）
+  "providers": {
+    "anthropic": {
+      "type": "anthropic",  // 类型: "anthropic" 或 "openai"
+      "api_key": "",        // API Key
+      "base_url": "",       // 自定义端点（留空使用默认）
+
+      // 可选：自定义请求头
+      // 示例1：启用 1M 上下文窗口（官方要求的 beta header）
+      // "headers": {
+      //   "anthropic-beta": "context-1m-2025-08-07"
+      // },
+      //
+      // 示例2：模拟 Claude Code 访问
+      // "headers": {
+      //   "x-anthropic-billing-header": "cc_version=2.1.66.9be; cc_entrypoint=cli; cch=0a47d;",
+      //   "User-Agent": "Claude-Code/2.1.66"
+      // },
+      "headers": {},
+
+      "models": [
+        { "name": "claude-haiku-4-5-20251001", "expected_context": 200000 },
+        { "name": "claude-sonnet-4-6",         "expected_context": 1000000 }
+      ]
+    },
+
+    // OpenAI 兼容的 provider 示例
+    "deepseek": {
+      "type": "openai",
+      "api_key": "",
+      "base_url": "https://api.deepseek.com",
+
+      // 可选：客户端类型（默认 "http"，更兼容代理站点）
+      // "client_type": "http",  // 使用 HTTP 直接请求（推荐）
+      // "client_type": "sdk",   // 使用 OpenAI SDK
+
+      // 可选：API 类型（默认 "chat_completions"）
+      // "api_type": "chat_completions",  // 标准 chat.completions 接口
+      // "api_type": "responses",         // responses 接口（部分代理站点）
+
+      "models": [
+        { "name": "deepseek-chat", "expected_context": 128000 }
+      ]
+    }
+  }
+}

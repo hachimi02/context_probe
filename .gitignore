@@ -1,0 +1,17 @@
+# Test directory (local testing configs and files)
+test/
+
+# Generated files
+test.txt
+context_report.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+
+# Claude working directory (except memory)
+.claude/**
+!.claude/memory/
