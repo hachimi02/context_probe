@@ -43,11 +43,25 @@ irm https://raw.githubusercontent.com/hachimi02/context_probe/main/install_from_
 ./install_from_github.sh dev
 ```
 
-## 快速开始
+## 使用方式
+
+### 作为 AI Agent skill 使用（推荐）
+
+安装后，在支持 skill 的 AI Agent（如 Claude Code、Cursor 等）中直接调用：
+
+```
+/context-probe
+```
+
+工具会自动读取配置文件并执行测试，结果会直接显示在对话中。
+
+### 直接运行 Python 脚本（高级用法）
+
+也可以直接使用 Python 运行：
 
 ```bash
-# 使用配置文件（推荐）
-python context_probe.py --config context_config.json
+# 使用配置文件
+python context_probe.py --config context_config.jsonc
 
 # 交互式输入（旧格式）
 python context_probe.py
