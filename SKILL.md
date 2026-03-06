@@ -1,6 +1,6 @@
 ---
 name: context-probe
-version: 1.0.1
+version: 1.1.1
 description: Test the actual context window size of AI models configured in your current client (Claude Code, Cursor, Continue). Use when the user wants to verify model context limits, validate client configuration, or compare declared vs actual context sizes.
 ---
 
@@ -8,7 +8,39 @@ description: Test the actual context window size of AI models configured in your
 
 Test the real context window limits of AI models in your current client configuration.
 
+**CRITICAL REQUIREMENT: This skill MUST have bash access to function. Do NOT attempt to work around this requirement.**
+
+## Subagent Configuration
+
+If running this skill via subagent, bash permissions must be configured:
+
+**Option 1: Configure in settings.json**
+Add to `~/.claude/settings.json`:
+```json
+{
+  "permissions": {
+    "allow": ["Bash(*)"]
+  }
+}
+```
+
+**Option 2: Run in main agent**
+If subagent bash configuration is not possible, invoke this skill in the main agent session instead of delegating to a subagent.
+
 ## Instructions
+
+### 0. Verify Bash Access (MANDATORY)
+
+Before doing anything else, attempt a simple bash command to verify access.
+
+If bash is denied:
+- STOP immediately
+- Explain: "This skill requires bash permissions to create config files and run the Python test script"
+- Tell user to grant bash permissions or run context_probe.py manually
+- DO NOT create any files or provide alternative responses
+- DO NOT proceed
+
+Only if bash succeeds, continue to step 1.
 
 ### 1. Ask User to Choose Mode
 
@@ -43,7 +75,12 @@ Present two options:
 
 ### 3. Convert to Test Configuration
 
-Create a configuration file for `context_probe.py`:
+**Create archive directory:**
+- Generate timestamp: `YYYYMMDD_HHMMSS` format
+- Create directory in skill base: `archives/YYYYMMDD_HHMMSS/`
+- All test files will be saved in this directory
+
+Create a configuration file for `context_probe.py` in the archive directory:
 
 ```json
 {
@@ -70,10 +107,11 @@ Create a configuration file for `context_probe.py`:
 
 Always detect the client type and add headers:
 
-- **Claude Code**: Extract version from config, use format:
+- **Claude Code**: Get version with `claude --version`, use format:
   - `x-anthropic-billing-header: "cc_version=<version>; cc_entrypoint=cli; cch=<hash>;"`
   - `User-Agent: "Claude-Code/<version>"`
-- **Cursor/Continue**: Use similar format with appropriate client name
+- **Cursor**: Get version with `cursor-agent --version`
+- **Continue**: Get version with `code --list-extensions --show-versions | grep Continue.continue`
 - **Custom mode**: Default to adding headers; only skip if user explicitly leaves client name empty
 
 **1M context support:**
@@ -90,11 +128,19 @@ If model name contains `[1m]` or expected_context >= 1000000, add:
 - Which models to test (if multiple found)
 - Confirm before running (tests consume API credits)
 
+**Save configuration:**
+- Write config to: `archives/YYYYMMDD_HHMMSS/context_config.json`
+- The report_file path in config is relative to the archive directory
+
 ### 4. Run Test
 
-Execute: `python context_probe.py --config <generated_config.json>`
+Execute from skill base directory: `python context_probe.py --config archives/YYYYMMDD_HHMMSS/context_config.json`
 
 Monitor progress and report errors (API key invalid, network issues, etc.).
+
+**After test completes:**
+- Display archive location to user: "归档位置: {skill_base}/archives/YYYYMMDD_HHMMSS/"
+- Report file saved at: `archives/YYYYMMDD_HHMMSS/context_report.json`
 
 **If initial probe fails with context error:**
 - The expected_context may be too high
@@ -103,7 +149,7 @@ Monitor progress and report errors (API key invalid, network issues, etc.).
 
 ### 5. Analyze Results
 
-Read `context_report.json` and display results in a table:
+Read `archives/YYYYMMDD_HHMMSS/context_report.json` and display results in a table:
 
 ```
 Provider/Model          | Expected   | Actual     | Diff    | Status

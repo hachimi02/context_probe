@@ -58,6 +58,13 @@ except ImportError:
     requests = None
     HAS_REQUESTS = False
 
+try:
+    from tqdm import tqdm
+    HAS_TQDM = True
+except ImportError:
+    tqdm = None
+    HAS_TQDM = False
+
 
 # ── 终端表格辅助 ─────────────────────────────────────────────────────────────
 
@@ -452,62 +459,78 @@ def create_client(provider_type, provider_cfg):
 
 # ── 二分查找 ───────────────────────────────────────────────────────────────────
 
-def _binary_search_phase(api_name, call_fn, content, low_chars, high_chars, threshold, calls, limit_type, last_success_tokens, log):
+def _binary_search_phase(api_name, call_fn, content, low_chars, high_chars, threshold, calls, limit_type, last_success_tokens, log, pbar=None):
     """
     单阶段二分查找，在 [low_chars, high_chars] 内收敛到 threshold。
 
     返回: (low_chars, high_chars, last_success_tokens, limit_type, calls, early_return)
     early_return 不为 None 时表示应直接返回该结果。
     """
-    log(f"  [{api_name}] 二分范围: {low_chars:,} – {high_chars:,} 字符（阈值 {threshold} chars）")
+    if pbar is None:
+        log(f"  [{api_name}] 二分范围: {low_chars:,} – {high_chars:,} 字符（阈值 {threshold} chars）")
 
+    iteration = 0
     while high_chars - low_chars > threshold:
         mid = (low_chars + high_chars) // 2
+        iteration += 1
 
         for attempt in range(1, 4):  # 最多重试 3 次（用于过载）
             calls += 1
+            if pbar is not None:
+                print(f"     第{iteration}次: 测试 {mid:,} chars", file=sys.stderr, end='', flush=True)
             success, tokens, err_type = call_fn(content[:mid])
 
             if success:
                 last_success_tokens = tokens
                 low_chars = mid
-                log(f"  [{api_name}] {mid:,} chars -> {tokens:,} tokens OK")
+                if pbar is not None:
+                    print(f" → ✓ {tokens:,} tokens", file=sys.stderr)
+                elif pbar is None:
+                    log(f"  [{api_name}] {mid:,} chars -> {tokens:,} tokens OK")
                 break
 
             elif err_type == "context":
                 high_chars = mid
-                log(f"  [{api_name}] {mid:,} chars -> 超出上下文 FAIL")
+                if pbar is not None:
+                    print(f" → ✗ 超出上下文", file=sys.stderr)
+                elif pbar is None:
+                    log(f"  [{api_name}] {mid:,} chars -> 超出上下文 FAIL")
                 break
 
             elif err_type == "proxy":
-                log(f"  [{api_name}] {mid:,} chars -> 代理错误，停止")
+                if pbar is None:
+                    log(f"  [{api_name}] {mid:,} chars -> 代理错误，停止")
                 early = {"max_tokens": last_success_tokens, "limit_type": "proxy", "calls": calls, "incomplete": True}
                 return low_chars, high_chars, last_success_tokens, limit_type, calls, early
 
             elif err_type == "unsupported":
-                log(f"  [{api_name}] 接口不支持 (404)")
+                if pbar is None:
+                    log(f"  [{api_name}] 接口不支持 (404)")
                 early = {"max_tokens": None, "limit_type": "unsupported", "calls": calls}
                 return low_chars, high_chars, last_success_tokens, limit_type, calls, early
 
             elif err_type == "overload":
                 if attempt < 3:
                     wait = attempt * 10
-                    log(f"  [{api_name}] 服务过载，{wait}s 后重试（第 {attempt} 次）...")
+                    if pbar is None:
+                        log(f"  [{api_name}] 服务过载，{wait}s 后重试（第 {attempt} 次）...")
                     time.sleep(wait)
                 else:
-                    log(f"  [{api_name}] 过载重试 3 次均失败，停止")
+                    if pbar is None:
+                        log(f"  [{api_name}] 过载重试 3 次均失败，停止")
                     early = {"max_tokens": last_success_tokens, "limit_type": limit_type, "calls": calls, "incomplete": True}
                     return low_chars, high_chars, last_success_tokens, limit_type, calls, early
 
             else:  # unknown
-                log(f"  [{api_name}] 未知错误，停止")
+                if pbar is None:
+                    log(f"  [{api_name}] 未知错误，停止")
                 early = {"max_tokens": last_success_tokens, "limit_type": limit_type, "calls": calls, "incomplete": True}
                 return low_chars, high_chars, last_success_tokens, limit_type, calls, early
 
     return low_chars, high_chars, last_success_tokens, limit_type, calls, None
 
 
-def do_binary_search(api_name, call_fn, content, expected_context, log, initial_high_chars=None):
+def do_binary_search(api_name, call_fn, content, expected_context, log, pbar=None, initial_high_chars=None):
     """
     两阶段二分查找。
 
@@ -526,17 +549,18 @@ def do_binary_search(api_name, call_fn, content, expected_context, log, initial_
     low_chars, high_chars, last_success_tokens, limit_type, calls, early = _binary_search_phase(
         api_name, call_fn, content, low_chars, high_chars,
         threshold=5000, calls=calls, limit_type=limit_type,
-        last_success_tokens=last_success_tokens, log=log,
+        last_success_tokens=last_success_tokens, log=log, pbar=pbar
     )
     if early is not None:
         return early
 
     # 第二阶段：精搜，在粗搜收敛的区间内继续缩小，误差约 10 tokens
-    log(f"  [{api_name}] 粗搜完成，进入精搜...")
+    if pbar is None:
+        log(f"  [{api_name}] 粗搜完成，进入精搜...")
     low_chars, high_chars, last_success_tokens, limit_type, calls, early = _binary_search_phase(
         api_name, call_fn, content, low_chars, high_chars,
         threshold=40, calls=calls, limit_type=limit_type,
-        last_success_tokens=last_success_tokens, log=log,
+        last_success_tokens=last_success_tokens, log=log, pbar=pbar
     )
     if early is not None:
         return early
@@ -546,20 +570,32 @@ def do_binary_search(api_name, call_fn, content, expected_context, log, initial_
 
 # ── 提供商特定的探测实现 ──────────────────────────────────────────────────────
 
-def probe_anthropic_context(client, model_name, content, expected_context, log):
+def probe_anthropic_context(client, model_name, content, expected_context, log, pbar=None):
     """Anthropic 提供商的上下文探测实现（指数搜索策略）。"""
     result = {}
 
     # count_tokens: 验证测试内容的 token 数
     verify_size = min(len(content), expected_context * 6)
-    log(f"  [count_tokens] 验证测试内容 token 数（样本: {verify_size:,} 字符）...")
+    if pbar is None:
+        log(f"  [count_tokens] 验证测试内容 token 数（样本: {verify_size:,} 字符）...")
+    else:
+        print(f"\n⏺ 验证token阶段", file=sys.stderr)
+        print(f"  ⎿ 样本大小: {verify_size:,} chars", file=sys.stderr)
+
     ct_call = make_count_tokens_call(client, model_name)
     success, tokens, err_type = ct_call(content[:verify_size])
+
     if success:
-        log(f"  [count_tokens] 样本共 {tokens:,} tokens，测试内容足够")
+        if pbar is not None:
+            print(f"     ✓ 验证成功: {tokens:,} tokens", file=sys.stderr)
+        else:
+            log(f"  [count_tokens] 样本共 {tokens:,} tokens，测试内容足够")
         result["count_tokens"] = {"sample_tokens": tokens, "sample_size": verify_size, "verified": True}
     else:
-        log(f"  [count_tokens] 验证失败: {err_type}")
+        if pbar is not None:
+            print(f"     ✗ 验证失败: {err_type}", file=sys.stderr)
+        else:
+            log(f"  [count_tokens] 验证失败: {err_type}")
         result["count_tokens"] = {"sample_tokens": None, "verified": False, "error": err_type}
 
     # 指数探测（Exponential/Galloping Search）
@@ -569,18 +605,32 @@ def probe_anthropic_context(client, model_name, content, expected_context, log):
     last_success_tokens = None
     calls = 0
 
-    log(f"  [messages.create] 指数探测阶段...")
+    if pbar is not None:
+        print(f"\n⏺ 指数探测阶段", file=sys.stderr)
+    else:
+        log(f"  [messages.create] 指数探测阶段...")
+
     for ratio in probe_ratios:
         probe_size = min(len(content), int(expected_context * ratio * 4))
         calls += 1
+        if pbar is not None:
+            print(f"  ⎿ 测试 {int(ratio*100)}%: {probe_size:,} chars", file=sys.stderr, end='', flush=True)
         success, tokens, err_type = call_fn(content[:probe_size])
 
         if success:
             last_success_size = probe_size
             last_success_tokens = tokens
-            log(f"  [messages.create] {probe_size:,} chars ({ratio:.2f}×) -> {tokens:,} tokens OK")
+            if pbar is not None:
+                print(f" → ✓ {tokens:,} tokens", file=sys.stderr)
+            else:
+                log(f"  [messages.create] {probe_size:,} chars ({ratio:.2f}×) -> {tokens:,} tokens OK")
         else:
-            log(f"  [messages.create] {probe_size:,} chars ({ratio:.2f}×) -> FAIL ({err_type})")
+            if pbar is not None:
+                print(f" → ✗ {err_type}", file=sys.stderr)
+                if last_success_tokens:
+                    print(f"     找到范围上限: ~{last_success_tokens:,} tokens", file=sys.stderr)
+            else:
+                log(f"  [messages.create] {probe_size:,} chars ({ratio:.2f}×) -> FAIL ({err_type})")
             if err_type not in ("context", "overload"):
                 result["messages_create"] = {"max_tokens": last_success_tokens, "limit_type": err_type, "calls": calls}
                 return result
@@ -588,12 +638,19 @@ def probe_anthropic_context(client, model_name, content, expected_context, log):
 
     # 二分查找阶段
     if last_success_size > 0:
-        log(f"  [messages.create] 二分查找阶段: {last_success_size:,} – {len(content):,} 字符")
+        if pbar is not None:
+            print(f"\n⏺ 二分搜索阶段", file=sys.stderr)
+            print(f"  ⎿ 搜索范围: {last_success_size:,} – {len(content):,} chars", file=sys.stderr)
+        else:
+            log(f"  [messages.create] 二分查找阶段: {last_success_size:,} – {len(content):,} 字符")
+
         mc_result = do_binary_search(
             "messages.create",
             call_fn,
-            content, expected_context, log,
+            content, expected_context, log, pbar
         )
+        if pbar is not None:
+            print(f"     ✓ 完成: {mc_result.get('max_tokens', 0):,} tokens", file=sys.stderr)
         mc_result["calls"] += calls
         result["messages_create"] = mc_result
     else:
@@ -602,9 +659,12 @@ def probe_anthropic_context(client, model_name, content, expected_context, log):
     return result
 
 
-def probe_openai_context(client, model_name, content, expected_context, log, provider_cfg=None):
+def probe_openai_context(client, model_name, content, expected_context, log, provider_cfg=None, pbar=None):
     """OpenAI 提供商的上下文探测实现（指数搜索策略）。"""
     result = {}
+
+    if pbar is not None:
+        pbar.set_description("测试OpenAI模型")
 
     # 获取配置参数
     api_type = provider_cfg.get("api_type", "chat_completions") if provider_cfg else "chat_completions"
@@ -646,6 +706,8 @@ def probe_openai_context(client, model_name, content, expected_context, log, pro
             api_name = "chat.completions"
 
     # 指数探测（Exponential/Galloping Search）：快速确定范围
+    if pbar is not None:
+        pbar.set_description("指数探测阶段")
     probe_ratios = [0.25, 0.5, 0.75, 1.0]
     last_success_size = 0
     last_success_tokens = None
@@ -670,11 +732,14 @@ def probe_openai_context(client, model_name, content, expected_context, log, pro
 
     # 二分查找阶段：在确定的范围内精确搜索
     if last_success_size > 0:
-        log(f"  [{api_name}] 二分查找阶段: {last_success_size:,} – {min(len(content), expected_context * 5):,} 字符")
+        if pbar is not None:
+            pbar.set_description("二分搜索阶段")
+        if pbar is None:
+            log(f"  [{api_name}] 二分查找阶段: {last_success_size:,} – {min(len(content), expected_context * 5):,} 字符")
         chat_result = do_binary_search(
             api_name,
             call_fn,
-            content, expected_context, log,
+            content, expected_context, log, pbar,
             initial_high_chars=min(len(content), expected_context * 5)
         )
         chat_result["calls"] += calls
@@ -687,14 +752,20 @@ def probe_openai_context(client, model_name, content, expected_context, log, pro
 
 # ── 模型测试 ──────────────────────────────────────────────────────────────────
 
-def test_model(client, provider_type, provider_name, model_cfg, content, lock, provider_cfg=None):
+def test_model(client, provider_type, provider_name, model_cfg, content, lock, provider_cfg=None, pbar=None):
     model_name = model_cfg["name"]
     display_name = f"{provider_name}/{model_name}"
     expected_context = model_cfg.get("expected_context", 200000)
 
     def log(msg):
         with lock:
-            print(msg, flush=True)
+            if pbar is not None:
+                tqdm.write(msg, file=sys.stderr)
+            else:
+                print(msg, flush=True)
+
+    if pbar is not None:
+        pbar.set_description(f"测试 {display_name}")
 
     log(f"\n[{display_name}] 开始测试（expected_context={expected_context:,}）")
 
@@ -705,9 +776,9 @@ def test_model(client, provider_type, provider_name, model_cfg, content, lock, p
     }
 
     if provider_type == "anthropic":
-        result.update(probe_anthropic_context(client, model_name, content, expected_context, log))
+        result.update(probe_anthropic_context(client, model_name, content, expected_context, log, pbar))
     elif provider_type == "openai":
-        result.update(probe_openai_context(client, model_name, content, expected_context, log, provider_cfg))
+        result.update(probe_openai_context(client, model_name, content, expected_context, log, provider_cfg, pbar))
 
     log(f"[{display_name}] 测试完成")
     return result
@@ -814,6 +885,12 @@ def main():
     providers = load_providers(args, config)
     report_file = config.get("report_file", "context_report.json")
 
+    # 如果指定了配置文件，报告文件相对于配置文件目录
+    if args.config:
+        config_dir = os.path.dirname(os.path.abspath(config_path))
+        if not os.path.isabs(report_file):
+            report_file = os.path.join(config_dir, report_file)
+
     # 收集所有 models
     all_models = []
     for prov_cfg in providers.values():
@@ -851,12 +928,29 @@ def main():
     results = []
     task_order = {(t[2], t[3]["name"]): i for i, t in enumerate(tasks)}
 
+    # 为单个模型创建进度条（spinner 旋转字符样式）
+    single_model_pbar = None
+    if HAS_TQDM and len(tasks) == 1:
+        single_model_pbar = tqdm(
+            total=0,
+            desc="准备测试",
+            bar_format='{desc} {postfix}',
+            disable=False,
+            file=sys.stderr
+        )
+
     with ThreadPoolExecutor(max_workers=len(tasks)) as executor:
         futures = {
-            executor.submit(test_model, client, prov_type, prov_name, model_cfg, content, lock, prov_cfg): (prov_name, model_cfg)
+            executor.submit(test_model, client, prov_type, prov_name, model_cfg, content, lock, prov_cfg, single_model_pbar): (prov_name, model_cfg)
             for client, prov_type, prov_name, model_cfg, prov_cfg in tasks
         }
-        for future in as_completed(futures):
+
+        # 使用进度条显示测试进度（仅在多个模型时）
+        iterator = as_completed(futures)
+        if HAS_TQDM and len(futures) > 1:
+            iterator = tqdm(iterator, total=len(futures), desc="测试进度", unit="模型")
+
+        for future in iterator:
             prov_name, model_cfg = futures[future]
             try:
                 results.append(future.result())
@@ -870,6 +964,10 @@ def main():
                     "count_tokens": None,
                     "messages_create": None,
                 })
+
+    # 关闭单个模型进度条
+    if single_model_pbar is not None:
+        single_model_pbar.close()
 
     results.sort(key=lambda r: task_order.get((r["provider"], r["model"]), 999))
     print_table(results)

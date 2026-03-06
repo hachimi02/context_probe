@@ -131,3 +131,34 @@ The skill will:
 - Generate proper client identification headers
 - Run context window tests
 - Report results with status indicators
+
+## Git Commit Guidelines
+
+Follow conventional commits format:
+
+```
+<type>(<scope>): <subject>
+
+<body>
+```
+
+**Types:**
+- `feat`: New feature
+- `fix`: Bug fix
+- `docs`: Documentation changes
+- `refactor`: Code refactoring
+- `test`: Test additions or changes
+- `chore`: Maintenance tasks
+
+**Rules:**
+- Subject line: imperative mood, lowercase, no period, max 70 chars
+- Body: explain what and why, not how
+- Scope is optional (e.g., `fix(skill)`, `feat(api)`)
+
+**Examples:**
+```
+fix: save report to archive directory when using --config
+
+- Fix report_file path resolution relative to config directory
+- Update SKILL.md to version 1.1.1
+```
