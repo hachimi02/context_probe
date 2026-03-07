@@ -2,73 +2,113 @@
 
 This document provides instructions for AI agents (Claude Code, Cursor, etc.) to install the context-probe skill.
 
-## Installation Task
+## Quick Installation (Recommended)
 
-Install the context-probe skill to enable context window testing functionality.
+The easiest way is using the remote installation script:
 
-## Required Files
+**Linux/macOS:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/hachimi02/context_probe/main/install_from_github.sh | bash
+```
 
-Download these files from the repository:
+**Windows (PowerShell):**
+```powershell
+irm https://raw.githubusercontent.com/hachimi02/context_probe/main/install_from_github.bat | iex
+```
+
+**Note**: These scripts require interactive input to choose installation location. If you cannot handle interactive prompts, use the manual method below.
+
+## Manual Installation for Agents
+
+### Step 1: Ask User for Installation Location
+
+Present these options:
+1. **Project-level**: `.claude/skills/context-probe` (current project only)
+2. **User-level**: `~/.claude/skills/context-probe` (available in all projects)
+3. **Custom path**: User specifies a directory
+
+**Important**: The path should end with `/context-probe`, not `/context-probe/context-probe`.
+
+### Step 2: Create Directory
+
+**Linux/macOS:**
+```bash
+mkdir -p <installation-path>
+```
+
+**Windows (PowerShell):**
+```powershell
+New-Item -ItemType Directory -Force -Path <installation-path>
+```
+
+Examples:
+- Project: `mkdir -p .claude/skills/context-probe` (Linux/macOS) or `New-Item -ItemType Directory -Force -Path .claude\skills\context-probe` (Windows)
+- User: `mkdir -p ~/.claude/skills/context-probe` (Linux/macOS) or `New-Item -ItemType Directory -Force -Path $env:USERPROFILE\.claude\skills\context-probe` (Windows)
+
+### Step 3: Download Required Files
+
+Download these files to the installation directory:
+
+**Required files:**
 1. `SKILL.md` - Skill definition and instructions
 2. `context_probe.py` - Main testing script
-3. `context_config.jsonc.template` - Configuration template (optional)
 
-## Installation Steps
+**Optional file:**
+3. `context_config.jsonc.template` - Configuration template
 
-### 1. Choose Installation Location
+**Download commands:**
 
-Ask the user to choose one of:
-- **Project-level**: `.claude/skills/context-probe/` (current project only)
-- **User-level**: `~/.claude/skills/context-probe/` (all projects)
-- **Custom path**: User-specified directory
-
-### 2. Create Directory Structure
-
+**Linux/macOS:**
 ```bash
-mkdir -p <chosen-path>/context-probe
+cd <installation-path>
+curl -fsSL https://raw.githubusercontent.com/hachimi02/context_probe/main/SKILL.md -o SKILL.md
+curl -fsSL https://raw.githubusercontent.com/hachimi02/context_probe/main/context_probe.py -o context_probe.py
+curl -fsSL https://raw.githubusercontent.com/hachimi02/context_probe/main/context_config.jsonc.template -o context_config.jsonc.template
 ```
 
-### 3. Download and Save Files
-
-For each required file:
-- Fetch from: `https://raw.githubusercontent.com/hachimi02/context_probe/main/<filename>`
-- Save to: `<chosen-path>/context-probe/<filename>`
-
-Example commands:
-```bash
-cd <chosen-path>/context-probe
-curl -O https://raw.githubusercontent.com/hachimi02/context_probe/main/SKILL.md
-curl -O https://raw.githubusercontent.com/hachimi02/context_probe/main/context_probe.py
-curl -O https://raw.githubusercontent.com/hachimi02/context_probe/main/context_config.jsonc.template
+**Windows (PowerShell):**
+```powershell
+cd <installation-path>
+Invoke-WebRequest -Uri https://raw.githubusercontent.com/hachimi02/context_probe/main/SKILL.md -OutFile SKILL.md
+Invoke-WebRequest -Uri https://raw.githubusercontent.com/hachimi02/context_probe/main/context_probe.py -OutFile context_probe.py
+Invoke-WebRequest -Uri https://raw.githubusercontent.com/hachimi02/context_probe/main/context_config.jsonc.template -OutFile context_config.jsonc.template
 ```
 
-### 4. Verify Installation
+### Step 4: Verify Installation
 
-Check that these files exist:
-- `<chosen-path>/context-probe/SKILL.md`
-- `<chosen-path>/context-probe/context_probe.py`
+Check that required files exist:
 
-### 5. Confirm to User
+**Linux/macOS:**
+```bash
+test -f <installation-path>/SKILL.md && test -f <installation-path>/context_probe.py && echo "✓ Installation successful"
+```
 
-Report installation location and version:
+**Windows (PowerShell):**
+```powershell
+if ((Test-Path <installation-path>\SKILL.md) -and (Test-Path <installation-path>\context_probe.py)) { Write-Host "✓ Installation successful" }
+```
+
+### Step 5: Confirm to User
+
+Extract version from SKILL.md and report:
 ```
 ✓ context-probe skill installed successfully
-  Location: <chosen-path>/context-probe
-  Version: <extract from SKILL.md>
+  Location: <installation-path>
+  Version: <extract from SKILL.md frontmatter>
 
 You can now use it by asking me to test context windows.
 ```
 
 ## Usage After Installation
 
-The skill can be triggered by user requests like:
+The skill can be triggered by:
 - "test my context window"
 - "probe context limit"
 - "/context-probe"
 
 ## Dependencies
 
-The skill requires Python packages (installed on first use):
+Python packages (auto-installed on first use):
 - `anthropic` - For Anthropic models
 - `openai` or `requests` - For OpenAI-compatible providers
 
@@ -77,4 +117,5 @@ The skill requires Python packages (installed on first use):
 If installation fails:
 1. Check network connectivity to GitHub
 2. Verify write permissions to installation directory
-3. Suggest manual installation via `install_skill.sh` script
+3. Try the interactive script: `curl -fsSL https://raw.githubusercontent.com/hachimi02/context_probe/main/install_from_github.sh | bash`
+
