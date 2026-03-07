@@ -209,7 +209,7 @@ pip install commentjson  # 支持 JSONC 格式配置文件
 
 **解读：**
 - 测试内容足够大（样本验证通过）
-- Sonnet 实际限制约 195K tokens（远低于官方 1M）
+- Sonnet 实际限制约 195K tokens（低于官方 1M，测试误差）
 - Haiku 实际限制约 216K tokens（略高于官方 200K）
 
 ## 架构特点
