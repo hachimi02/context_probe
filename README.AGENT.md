@@ -20,14 +20,18 @@ irm https://raw.githubusercontent.com/hachimi02/context_probe/main/install_from_
 
 ## Manual Installation for Agents
 
-### Step 1: Ask User for Installation Location
+### Step 1: Ask User for Installation Location (REQUIRED)
 
-Present these options:
+**CRITICAL: You MUST ask the user to choose. DO NOT assume or default to any location.**
+
+Present these options and wait for user response:
 1. **Project-level**: `.claude/skills/context-probe` (current project only)
 2. **User-level**: `~/.claude/skills/context-probe` (available in all projects)
 3. **Custom path**: User specifies a directory
 
-**Important**: The path should end with `/context-probe`, not `/context-probe/context-probe`.
+**Important**:
+- The path should end with `/context-probe`, not `/context-probe/context-probe`
+- Do not proceed to Step 2 until the user has made a choice
 
 ### Step 2: Create Directory
 
