@@ -10,6 +10,17 @@
 
 ## 安装
 
+### AI Agent 自动安装（最简单）
+
+如果你使用 Claude Code、Cursor 等支持 AI agent 的工具，只需在对话中输入：
+
+```
+请根据这个文档安装 context-probe skill：
+https://raw.githubusercontent.com/hachimi02/context_probe/main/README.AGENT.md
+```
+
+Agent 会自动下载并安装所需文件。
+
 ### 一键安装（推荐）
 
 **Linux/macOS:**
